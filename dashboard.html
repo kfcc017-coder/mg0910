@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>정기예금 금리 비교 대시보드</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --text:#162033; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#2563eb; --accent2:#0f766e; --danger:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:var(--bg);color:var(--text)}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 20px 48px}
+  .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}
+  h1{font-size:28px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:14px}
+  .status{font-size:13px;padding:8px 12px;border-radius:999px;background:#eef2ff;color:#3730a3;white-space:nowrap}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 20px}
+  input,select,button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;font:inherit}
+  input{min-width:260px}
+  button{cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 4px 14px rgba(15,23,42,.04)}
+  .label{font-size:13px;color:var(--muted);margin-bottom:8px}
+  .value{font-size:26px;font-weight:800}
+  .hint{font-size:12px;color:var(--muted);margin-top:5px}
+  .panel-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-bottom:18px}
+  .panel-title{font-weight:800;margin-bottom:14px}
+  .chart{display:flex;flex-direction:column;gap:12px}
+  .barrow{display:grid;grid-template-columns:160px 1fr 80px;gap:10px;align-items:center;font-size:13px}
+  .barlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .track{height:20px;background:#eef2f7;border-radius:999px;position:relative;overflow:hidden}
+  .base,.max{height:100%;position:absolute;left:0;top:0;border-radius:999px}
+  .max{background:#bfdbfe}
+  .base{background:#2563eb;z-index:2}
+  .legend{display:flex;gap:14px;color:var(--muted);font-size:12px;margin-top:10px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+  .sector-list{display:grid;gap:10px}
+  .sector-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px dashed var(--line)}
+  .sector-row:last-child{border-bottom:0}
+  .table-card{overflow:hidden}
+  .table-scroll{overflow:auto}
+  table{width:100%;border-collapse:collapse;min-width:980px}
+  th,td{text-align:left;padding:13px 12px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+  th{position:sticky;top:0;background:#f8fafc;color:#475569;font-weight:700}
+  td.rate{font-variant-numeric:tabular-nums;font-weight:700}
+  .pill{display:inline-block;background:#f1f5f9;border-radius:999px;padding:4px 8px;white-space:nowrap}
+  .foot{margin-top:14px;color:var(--muted);font-size:12px;line-height:1.6}
+  .warn{margin-top:14px;padding:12px 14px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;font-size:13px;line-height:1.55}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.panel-grid{grid-template-columns:1fr}.top{flex-direction:column}.barrow{grid-template-columns:120px 1fr 70px}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}.wrap{padding:18px 12px}.barrow{grid-template-columns:92px 1fr 62px}input{min-width:100%;width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>주요 금융기관 정기예금 금리 비교</h1>
+      <div class="sub">Supabase test project 017 · public.deposit_rate_comparisons · 1년 만기 기준</div>
+    </div>
+    <div class="status" id="status">저장 스냅샷 표시 중</div>
+  </div>
+
+  <div class="controls">
+    <input id="search" placeholder="금융기관 또는 상품명 검색" />
+    <select id="sector"><option value="">전체 금융권</option></select>
+    <select id="sort">
+      <option value="max_desc">최고금리 높은 순</option>
+      <option value="base_desc">기본금리 높은 순</option>
+      <option value="name_asc">기관명 순</option>
+    </select>
+    <button class="primary" id="refresh">Supabase 새로고침</button>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="label">비교 기관 수</div><div class="value" id="kpiCount">-</div><div class="hint">현재 필터 기준</div></div>
+    <div class="card"><div class="label">평균 기본금리</div><div class="value" id="kpiBase">-</div><div class="hint">세전 연이율</div></div>
+    <div class="card"><div class="label">평균 최고금리</div><div class="value" id="kpiMax">-</div><div class="hint">우대금리 포함</div></div>
+    <div class="card"><div class="label">최고금리 범위</div><div class="value" id="kpiRange">-</div><div class="hint">최고−최저</div></div>
+  </div>
+
+  <div class="panel-grid">
+    <div class="card">
+      <div class="panel-title">기관별 기본·최고금리</div>
+      <div class="chart" id="chart"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#2563eb"></i>기본금리</span>
+        <span><i class="dot" style="background:#bfdbfe"></i>최고금리</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="panel-title">금융권별 요약</div>
+      <div class="sector-list" id="sectorSummary"></div>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="panel-title">정기예금 상품 상세</div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>금융기관</th><th>금융권</th><th>상품명</th><th>기본금리</th><th>최고금리</th><th>우대조건</th><th>비교일</th><th>비고</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="foot">금리는 세전 연이율(%) 기준이며 실제 가입 시점의 공시금리와 우대조건을 확인해야 합니다.</div>
+  </div>
+
+  <div class="warn" id="rlsWarn">
+    실시간 새로고침은 현재 테이블에 SELECT RLS 정책이 없어서 차단될 수 있습니다. 이 경우 대시보드는 마지막으로 확인한 Supabase 스냅샷을 계속 표시합니다.
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://mnobwjobpkpvruouzqes.supabase.co";
+const SUPABASE_KEY = "sb_publishable_tyb6MdajxzNiKWtMim2-8Q_ZEMkLliS";
+
+const snapshot = [
+  {"id":3,"institution_name":"신협(서청주신협 기준)","sector":"상호금융","product_name":"정기예탁금","base_rate":4.06,"maximum_rate":4.06,"preferential_conditions":"별도 우대조건 없음; 해당 조합 고시금리 적용","comparison_date":"2026-09-10","notes":"신협은 조합별 금리가 다름"},
+  {"id":6,"institution_name":"OK저축은행","sector":"저축은행","product_name":"OK e-정기예금","base_rate":3.90,"maximum_rate":3.90,"preferential_conditions":"인터넷·모바일 가입; 별도 우대조건 없음","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"},
+  {"id":5,"institution_name":"SBI저축은행","sector":"저축은행","product_name":"정기예금(1년 변동금리)","base_rate":3.70,"maximum_rate":3.90,"preferential_conditions":"공시 우대폭 최대 0.20%p; 세부 요건은 가입 시 상품공시 확인","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"},
+  {"id":4,"institution_name":"수협은행","sector":"수협계열","product_name":"헤이(Hey)정기예금","base_rate":3.61,"maximum_rate":3.61,"preferential_conditions":"인터넷·스마트뱅킹 가입; 별도 실적형 우대조건 없음","comparison_date":"2026-09-10","notes":"단위수협 상호금융 예탁금이 아닌 Sh수협은행 상품"},
+  {"id":2,"institution_name":"신한은행","sector":"시중은행","product_name":"신한 My플러스 정기예금","base_rate":2.30,"maximum_rate":3.30,"preferential_conditions":"SOL뱅크 가입 및 상품별 거래·신규고객 등 우대요건; 가입 화면에서 세부 조건 확인","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"},
+  {"id":1,"institution_name":"KB국민은행","sector":"시중은행","product_name":"KB Star 정기예금","base_rate":2.40,"maximum_rate":3.20,"preferential_conditions":"인터넷·KB스타뱅킹 전용; 가입 시점 고객 적용금리 확인","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"}
+];
+
+let rows = [...snapshot];
+let filtered = [...rows];
+
+const $ = s => document.querySelector(s);
+const fmt = n => Number(n).toFixed(2) + "%";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+
+function initSectors(){
+  const current = $("#sector").value;
+  const sectors = [...new Set(rows.map(r=>r.sector))].sort((a,b)=>a.localeCompare(b,"ko"));
+  $("#sector").innerHTML = '<option value="">전체 금융권</option>' + sectors.map(s=>`<option>${esc(s)}</option>`).join("");
+  $("#sector").value = sectors.includes(current) ? current : "";
+}
+
+function render(){
+  const q = $("#search").value.trim().toLowerCase();
+  const sec = $("#sector").value;
+  filtered = rows.filter(r => (!sec || r.sector===sec) && (!q || (r.institution_name+" "+r.product_name).toLowerCase().includes(q)));
+
+  const sort = $("#sort").value;
+  filtered.sort((a,b)=>{
+    if(sort==="base_desc") return b.base_rate-a.base_rate;
+    if(sort==="name_asc") return a.institution_name.localeCompare(b.institution_name,"ko");
+    return b.maximum_rate-a.maximum_rate || b.base_rate-a.base_rate;
+  });
+
+  const count = filtered.length;
+  const avgBase = count ? filtered.reduce((s,r)=>s+r.base_rate,0)/count : 0;
+  const avgMax = count ? filtered.reduce((s,r)=>s+r.maximum_rate,0)/count : 0;
+  const maxes = filtered.map(r=>r.maximum_rate);
+  const range = count ? Math.max(...maxes)-Math.min(...maxes) : 0;
+  $("#kpiCount").textContent = count;
+  $("#kpiBase").textContent = fmt(avgBase);
+  $("#kpiMax").textContent = fmt(avgMax);
+  $("#kpiRange").textContent = range.toFixed(2)+"%p";
+
+  const scaleMax = Math.max(5, ...rows.map(r=>r.maximum_rate));
+  $("#chart").innerHTML = filtered.map(r=>`
+    <div class="barrow" title="${esc(r.product_name)}">
+      <div class="barlabel">${esc(r.institution_name)}</div>
+      <div class="track">
+        <div class="max" style="width:${r.maximum_rate/scaleMax*100}%"></div>
+        <div class="base" style="width:${r.base_rate/scaleMax*100}%"></div>
+      </div>
+      <div>${fmt(r.base_rate)} / ${fmt(r.maximum_rate)}</div>
+    </div>`).join("") || "<div class='sub'>표시할 데이터가 없습니다.</div>";
+
+  const groups = {};
+  filtered.forEach(r=>{
+    if(!groups[r.sector]) groups[r.sector]=[];
+    groups[r.sector].push(r);
+  });
+  $("#sectorSummary").innerHTML = Object.entries(groups).map(([sector,arr])=>{
+    const avg = arr.reduce((s,r)=>s+r.maximum_rate,0)/arr.length;
+    const best = arr.reduce((a,b)=>a.maximum_rate>=b.maximum_rate?a:b);
+    return `<div class="sector-row"><div><b>${esc(sector)}</b><div class="hint">${arr.length}개 · 최고 ${esc(best.institution_name)}</div></div><div><b>${fmt(avg)}</b><div class="hint">평균 최고금리</div></div></div>`;
+  }).join("") || "<div class='sub'>표시할 데이터가 없습니다.</div>";
+
+  $("#tbody").innerHTML = filtered.map(r=>`<tr>
+    <td><b>${esc(r.institution_name)}</b></td>
+    <td><span class="pill">${esc(r.sector)}</span></td>
+    <td>${esc(r.product_name)}</td>
+    <td class="rate">${fmt(r.base_rate)}</td>
+    <td class="rate">${fmt(r.maximum_rate)}</td>
+    <td>${esc(r.preferential_conditions)}</td>
+    <td>${esc(r.comparison_date)}</td>
+    <td>${esc(r.notes)}</td>
+  </tr>`).join("");
+}
+
+async function refreshFromSupabase(){
+  const status = $("#status");
+  status.textContent = "Supabase 연결 중…";
+  try{
+    const url = `${SUPABASE_URL}/rest/v1/deposit_rate_comparisons?select=id,institution_name,sector,product_name,base_rate,maximum_rate,preferential_conditions,comparison_date,notes&order=maximum_rate.desc`;
+    const res = await fetch(url, {headers:{"apikey":SUPABASE_KEY}});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    rows = data.map(r=>({...r,base_rate:Number(r.base_rate),maximum_rate:Number(r.maximum_rate)}));
+    initSectors();
+    render();
+    status.textContent = `Supabase 실시간 · ${new Date().toLocaleTimeString("ko-KR")}`;
+    $("#rlsWarn").style.display="none";
+  }catch(e){
+    rows = [...snapshot];
+    initSectors();
+    render();
+    status.textContent = "스냅샷 표시 · 실시간 접근 차단";
+    $("#rlsWarn").style.display="block";
+    console.warn("Supabase refresh failed:", e);
+  }
+}
+
+$("#search").addEventListener("input",render);
+$("#sector").addEventListener("change",render);
+$("#sort").addEventListener("change",render);
+$("#refresh").addEventListener("click",refreshFromSupabase);
+
+initSectors();
+render();
+refreshFromSupabase();
+</script>
+</body>
+</html>
