@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MG 맞춤형 대출 상환 계산기</title>
+  <style>
+    :root{
+      --mg-blue:#0067b1; --mg-deep:#073b65; --mg-light:#eaf5fc;
+      --text:#172434; --sub:#647487; --border:#dce6ef; --bg:#f4f7fa;
+      --white:#fff; --shadow:0 8px 28px rgba(19,54,82,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Pretendard,"Noto Sans KR","Apple SD Gothic Neo",Arial,sans-serif;
+      color:var(--text); background:linear-gradient(180deg,#edf7fd 0,#f6f8fb 280px,#f6f8fb 100%);
+    }
+    button,input{font:inherit}
+    button{cursor:pointer}
+    .page-shell{width:min(1380px,calc(100% - 40px));margin:0 auto;padding:30px 0 64px}
+    .ci-header{
+      display:flex;justify-content:space-between;align-items:center;gap:20px;
+      padding:17px 22px;margin-bottom:22px;background:#fff;border:1px solid #dfe9f1;
+      border-radius:18px;box-shadow:var(--shadow)
+    }
+    .ci-logo-wrap{display:flex;align-items:center;gap:16px;min-width:0}
+    .ci-logo{height:48px;width:auto;max-width:250px;object-fit:contain;object-position:left center}
+    .ci-fallback{display:none;font-size:25px;font-weight:900;color:#00529b;letter-spacing:-.05em}
+    .ci-divider{width:1px;height:38px;background:#dfe7ee}
+    .ci-service{font-size:14px;font-weight:800;color:#42576a;white-space:nowrap}
+    .ci-meta{text-align:right;color:#7b8a99;font-size:11px;line-height:1.5}
+    .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:24px}
+    h1{margin:0 0 8px;color:var(--mg-deep);font-size:clamp(27px,4vw,40px);letter-spacing:-.045em}
+    .hero p{margin:0;color:var(--sub);font-size:15px}
+    .hero-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+    .ghost-btn,.pdf-btn{
+      min-height:42px;padding:0 15px;border-radius:11px;font-size:12px;font-weight:800
+    }
+    .ghost-btn{border:1px solid #cddce7;background:#fff;color:#52697d}
+    .pdf-btn{border:0;background:var(--mg-blue);color:#fff;box-shadow:0 6px 15px rgba(0,103,177,.2)}
+    .main-grid{display:grid;grid-template-columns:minmax(330px,430px) minmax(0,1fr);gap:22px;align-items:start}
+    .panel{border:1px solid rgba(213,225,235,.9);border-radius:22px;background:rgba(255,255,255,.96);box-shadow:var(--shadow)}
+    .input-panel{position:sticky;top:20px;padding:26px}
+    .panel-title,.field-header,.summary-heading,.schedule-header{
+      display:flex;align-items:center;justify-content:space-between;gap:12px
+    }
+    .panel-title{margin-bottom:24px}
+    .panel-title h2,.summary-heading h2,.schedule-header h2{margin:0;letter-spacing:-.035em}
+    .panel-title h2,.summary-heading h2{font-size:20px}
+    .step-badge,.summary-method{
+      padding:5px 9px;border-radius:999px;background:var(--mg-light);color:var(--mg-blue);font-size:11px;font-weight:800
+    }
+    .field{margin-bottom:24px}.field-header{margin-bottom:9px}
+    .field-header label,.field-label{font-size:14px;font-weight:750;color:#26384a}
+    .field-hint{font-size:11px;color:#8a98a8}
+    .input-wrap{position:relative}
+    .input-wrap input{
+      width:100%;height:52px;padding:0 72px 0 15px;border:1px solid var(--border);border-radius:12px;
+      outline:none;background:#fff;font-size:17px;font-weight:750;text-align:right
+    }
+    .input-wrap input:focus{border-color:var(--mg-blue);box-shadow:0 0 0 4px rgba(0,103,177,.09)}
+    .unit{position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--sub);font-weight:650}
+    .slider{width:100%;height:5px;margin:15px 0 1px;appearance:none;border-radius:999px;outline:none;background:linear-gradient(to right,var(--mg-blue) 0,var(--mg-blue) var(--slider-progress,0%),#dce8f0 var(--slider-progress,0%),#dce8f0 100%)}
+    .slider::-webkit-slider-thumb{width:19px;height:19px;appearance:none;border:4px solid #fff;border-radius:50%;background:var(--mg-blue);box-shadow:0 1px 5px rgba(0,69,117,.32)}
+    .quick-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px}
+    .quick-buttons button{height:38px;border:1px solid #d9e5ee;border-radius:10px;background:#f8fbfd;color:#53677a;font-size:12px;font-weight:750}
+    .segmented{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:4px;margin-bottom:10px;border:1px solid var(--border);border-radius:11px;background:#f4f7f9}
+    .segment-button{height:35px;border:0;border-radius:8px;background:transparent;color:#718091;font-size:12px;font-weight:800}
+    .segment-button.active{background:#fff;color:var(--mg-blue);box-shadow:0 2px 8px rgba(34,65,91,.08)}
+    .repayment-options{display:grid;gap:8px}.repayment-option{position:relative}.repayment-option input{position:absolute;opacity:0}
+    .repayment-option label{display:flex;align-items:center;gap:12px;min-height:54px;padding:10px 13px;border:1px solid var(--border);border-radius:12px;background:#fff;cursor:pointer}
+    .repayment-option input:checked+label{border-color:var(--mg-blue);background:#f6fbff;box-shadow:0 0 0 2px rgba(0,103,177,.07)}
+    .radio-dot{width:18px;height:18px;flex:0 0 18px;border:2px solid #b7c7d3;border-radius:50%;position:relative}
+    .repayment-option input:checked+label .radio-dot{border-color:var(--mg-blue)}
+    .repayment-option input:checked+label .radio-dot::after{content:"";position:absolute;width:8px;height:8px;left:3px;top:3px;border-radius:50%;background:var(--mg-blue)}
+    .repayment-name{display:block;font-size:13px;font-weight:800}.repayment-desc{display:block;margin-top:1px;color:#8997a5;font-size:10.5px}
+    .calculate-button{width:100%;height:56px;border:0;border-radius:13px;background:linear-gradient(135deg,var(--mg-blue),#087cc6);color:#fff;font-size:15px;font-weight:850;box-shadow:0 7px 18px rgba(0,103,177,.22)}
+    .results-panel{display:flex;flex-direction:column;gap:18px;min-width:0}.summary-card{padding:27px}.summary-heading{margin-bottom:20px}
+    .summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .metric{min-height:120px;padding:20px;border:1px solid #e3ebf2;border-radius:15px;background:#fbfdff}
+    .metric.primary{border-color:transparent;background:linear-gradient(135deg,var(--mg-deep),var(--mg-blue));color:#fff}
+    .metric-label{margin-bottom:11px;color:#728296;font-size:12px;font-weight:700}.metric.primary .metric-label{color:rgba(255,255,255,.72)}
+    .metric-value{font-size:clamp(20px,3vw,28px);font-weight:900;letter-spacing:-.045em;white-space:nowrap}.metric-unit{font-size:12px;font-weight:700}
+    .summary-note{margin-top:16px;padding:12px 14px;border-radius:11px;background:#f6f8fa;color:#748394;font-size:11px}
+    .schedule-card{overflow:hidden}.schedule-header{padding:22px 24px 17px;border-bottom:1px solid #e9eff4}.schedule-header h2{font-size:18px}.schedule-subtitle{margin:3px 0 0;color:#8290a0;font-size:11px}
+    .table-count{font-size:11px;font-weight:800;color:var(--mg-blue)}.table-scroll{max-height:630px;overflow:auto}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}th,td{padding:14px 13px;border-bottom:1px solid #edf1f4;text-align:right;white-space:nowrap}
+    th{position:sticky;top:0;z-index:2;background:#f7fafc;color:#68798a;font-size:11px;font-weight:800}th:first-child,td:first-child{width:70px;text-align:center}
+    .payment-cell{color:var(--mg-deep);font-weight:850}.balance-cell{color:#647586}
+    .error-box{display:none;padding:11px 13px;margin-bottom:14px;border:1px solid #f3caca;border-radius:10px;background:#fff4f4;color:#be3c3c;font-size:11px}.error-box.show{display:block}
+
+    /* PDF Preview */
+    .modal{position:fixed;inset:0;z-index:1000;display:none;background:rgba(11,30,47,.62);backdrop-filter:blur(4px)}
+    .modal.show{display:block}
+    .modal-shell{height:100%;display:flex;flex-direction:column}
+    .modal-toolbar{
+      flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;
+      padding:14px 22px;background:#fff;border-bottom:1px solid #dce6ef
+    }
+    .modal-toolbar strong{font-size:15px}.modal-toolbar-actions{display:flex;gap:8px}
+    .modal-body{flex:1;overflow:auto;padding:28px}
+    .pdf-paper{
+      width:210mm;min-height:297mm;margin:0 auto;padding:16mm 15mm;background:#fff;
+      box-shadow:0 18px 60px rgba(0,0,0,.25);color:#1d2935
+    }
+    .pdf-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:12mm;border-bottom:2px solid #0a5d9f}
+    .pdf-logo{height:38px;width:auto;max-width:190px;object-fit:contain;object-position:left center}
+    .pdf-title{text-align:right}.pdf-title h2{margin:0 0 6px;font-size:22px;color:#073b65}.pdf-title p{margin:0;color:#6f7d8b;font-size:11px}
+    .pdf-section{margin-top:10mm}.pdf-section h3{margin:0 0 5mm;font-size:14px;color:#073b65}
+    .pdf-info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .pdf-info{padding:10px;border:1px solid #dfe8ef;border-radius:8px;background:#f9fbfd}
+    .pdf-info span{display:block;font-size:9px;color:#718091;margin-bottom:4px}.pdf-info strong{font-size:12px}
+    .pdf-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+    .pdf-summary>div{padding:13px;border-radius:9px;border:1px solid #dce7ef}
+    .pdf-summary span{display:block;font-size:9px;color:#718091;margin-bottom:5px}.pdf-summary strong{font-size:15px;color:#073b65}
+    .pdf-table{font-size:9px;table-layout:auto}.pdf-table th,.pdf-table td{padding:7px 6px}.pdf-table th{position:static;background:#edf5fa}.pdf-table th:first-child,.pdf-table td:first-child{width:auto}
+    .pdf-notice{margin-top:8mm;padding:10px 12px;background:#f5f7f9;border-radius:8px;color:#657484;font-size:9px;line-height:1.7}
+    .pdf-footer{margin-top:9mm;padding-top:5mm;border-top:1px solid #dfe6ec;display:flex;justify-content:space-between;color:#83909c;font-size:8.5px}
+    @page{size:A4;margin:12mm}
+    @media print{
+      body *{visibility:hidden!important}
+      #pdfPaper,#pdfPaper *{visibility:visible!important}
+      #pdfPaper{position:absolute;left:0;top:0;width:100%;min-height:auto;margin:0;padding:0;box-shadow:none}
+      .pdf-table thead{display:table-header-group}
+      .pdf-table tr{break-inside:avoid}
+      .modal{display:block!important;position:static;background:none}
+      .modal-toolbar{display:none!important}.modal-body{padding:0;overflow:visible}
+    }
+    @media(max-width:980px){.main-grid{grid-template-columns:1fr}.input-panel{position:static}.pdf-paper{width:min(210mm,100%)}}
+    @media(max-width:680px){
+      .page-shell{width:min(100% - 24px,1380px);padding-top:16px}
+      .ci-header{align-items:flex-start}.ci-logo{height:38px;max-width:180px}.ci-divider,.ci-meta{display:none}.ci-service{font-size:12px}
+      .hero{align-items:flex-start;flex-direction:column}.hero-actions{justify-content:flex-start}
+      .input-panel,.summary-card{padding:20px}.summary-grid{grid-template-columns:1fr}.metric{min-height:auto}
+      .schedule-header{align-items:flex-start;flex-direction:column}table{min-width:660px}
+      .modal-body{padding:10px}.pdf-paper{padding:10mm 8mm}.pdf-info-grid{grid-template-columns:1fr 1fr}.pdf-summary{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="hero">
+      <div>
+        <h1>MG 맞춤형 대출 상환 계산기</h1>
+        <p>대출 조건을 입력하고 예상 상환금액과 월별 상환 일정을 확인해보세요.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="pdfPreviewButton" class="pdf-btn" type="button">고객용 PDF 미리보기</button>
+      </div>
+    </header>
+
+    <section class="main-grid">
+      <aside class="panel input-panel">
+        <div class="panel-title"><h2>대출 조건 입력</h2><span class="step-badge">STEP 01</span></div>
+        <div id="errorBox" class="error-box" role="alert"></div>
+
+        <div class="field">
+          <div class="field-header"><label for="loanAmount">대출 금액</label><span class="field-hint">만원 단위</span></div>
+          <div class="input-wrap"><input id="loanAmount" type="number" min="100" max="100000" step="10" value="3000"><span class="unit">만원</span></div>
+          <input id="loanAmountSlider" class="slider" type="range" min="100" max="30000" step="100" value="3000">
+          <div class="quick-buttons">
+            <button type="button" data-add-amount="100">+ 100만원</button>
+            <button type="button" data-add-amount="500">+ 500만원</button>
+            <button type="button" data-add-amount="1000">+ 1,000만원</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-header"><label for="loanTerm">대출 기간</label></div>
+          <div class="segmented">
+            <button type="button" class="segment-button active" data-term-unit="month">개월</button>
+            <button type="button" class="segment-button" data-term-unit="year">년</button>
+          </div>
+          <div class="input-wrap"><input id="loanTerm" type="number" min="1" max="360" step="1" value="36"><span id="termUnitLabel" class="unit">개월</span></div>
+          <input id="loanTermSlider" class="slider" type="range" min="1" max="360" step="1" value="36">
+        </div>
+
+        <div class="field">
+          <div class="field-header"><label for="interestRate">연 이자율</label></div>
+          <div class="input-wrap"><input id="interestRate" type="number" min="0" max="30" step="0.01" value="4.50"><span class="unit">%</span></div>
+          <input id="interestRateSlider" class="slider" type="range" min="0" max="20" step="0.05" value="4.5">
+        </div>
+
+        <div class="field">
+          <div class="field-header"><span class="field-label">상환 방식</span></div>
+          <div class="repayment-options">
+            <div class="repayment-option"><input id="methodAnnuity" name="repaymentMethod" type="radio" value="annuity" checked><label for="methodAnnuity"><span class="radio-dot"></span><span><span class="repayment-name">원리금균등분할상환</span><span class="repayment-desc">매월 원금과 이자의 합계를 유사한 수준으로 상환</span></span></label></div>
+            <div class="repayment-option"><input id="methodPrincipal" name="repaymentMethod" type="radio" value="principal"><label for="methodPrincipal"><span class="radio-dot"></span><span><span class="repayment-name">원금균등분할상환</span><span class="repayment-desc">원금을 균등하게 나누고 잔액에 대한 이자를 상환</span></span></label></div>
+            <div class="repayment-option"><input id="methodBullet" name="repaymentMethod" type="radio" value="bullet"><label for="methodBullet"><span class="radio-dot"></span><span><span class="repayment-name">만기일시상환</span><span class="repayment-desc">매월 이자 납부 후 만기에 원금 일시 상환</span></span></label></div>
+          </div>
+        </div>
+
+        <button id="calculateButton" class="calculate-button" type="button">상환금액 계산하기</button>
+      </aside>
+
+      <section class="results-panel">
+        <article class="panel summary-card">
+          <div class="summary-heading"><h2>예상 상환 결과</h2><span id="summaryMethod" class="summary-method">원리금균등분할상환</span></div>
+          <div class="summary-grid">
+            <div class="metric primary"><div class="metric-label">1회차 예상 상환액</div><span id="firstPayment" class="metric-value">0</span> <span class="metric-unit">원</span></div>
+            <div class="metric"><div class="metric-label">총 이자 합계</div><span id="totalInterest" class="metric-value">0</span> <span class="metric-unit">원</span></div>
+            <div class="metric"><div class="metric-label">총 상환 금액</div><span id="totalRepayment" class="metric-value">0</span> <span class="metric-unit">원</span></div>
+          </div>
+          <div class="summary-note">※ 본 결과는 월 단위 예상치입니다. 실제 이자계산 방식, 실행일·납입일, 금리변동, 중도상환수수료 등에 따라 달라질 수 있습니다.</div>
+        </article>
+
+        <article class="panel schedule-card">
+          <div class="schedule-header"><div><h2>월별 상환 스케줄</h2><p class="schedule-subtitle">원금 · 이자 · 월 납입금 · 예상 잔액</p></div><span id="tableCount" class="table-count">총 0회</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>회차</th><th>상환 원금</th><th>이자</th><th>월 납입금</th><th>대출 잔액</th></tr></thead>
+              <tbody id="scheduleBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <div id="pdfModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pdfPreviewTitle">
+    <div class="modal-shell">
+      <div class="modal-toolbar">
+        <strong id="pdfPreviewTitle">고객용 PDF 미리보기</strong>
+        <div class="modal-toolbar-actions">
+          <button id="closePdfButton" class="ghost-btn" type="button">닫기</button>
+          <button id="printPdfButton" class="pdf-btn" type="button">PDF로 저장 / 인쇄</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <article id="pdfPaper" class="pdf-paper">
+          <div class="pdf-head">
+            <div>
+              <img class="pdf-logo" src="https://www.kfcc.co.kr/static/images/content/cc/img_ci09.jpg" alt="MG새마을금고">
+            </div>
+            <div class="pdf-title">
+              <h2>대출 상환 예상 안내서</h2>
+              <p id="pdfCreatedAt"></p>
+            </div>
+          </div>
+
+          <section class="pdf-section">
+            <h3>대출 조건</h3>
+            <div class="pdf-info-grid">
+              <div class="pdf-info"><span>대출 금액</span><strong id="pdfAmount"></strong></div>
+              <div class="pdf-info"><span>대출 기간</span><strong id="pdfTerm"></strong></div>
+              <div class="pdf-info"><span>연 이자율</span><strong id="pdfRate"></strong></div>
+              <div class="pdf-info"><span>상환 방식</span><strong id="pdfMethod"></strong></div>
+            </div>
+          </section>
+
+          <section class="pdf-section">
+            <h3>예상 상환 요약</h3>
+            <div class="pdf-summary">
+              <div><span>1회차 예상 상환액</span><strong id="pdfFirst"></strong></div>
+              <div><span>총 이자 합계</span><strong id="pdfInterest"></strong></div>
+              <div><span>총 상환 금액</span><strong id="pdfTotal"></strong></div>
+            </div>
+          </section>
+
+          <section class="pdf-section">
+            <h3>회차별 상환 스케줄</h3>
+            <table class="pdf-table">
+              <thead><tr><th>회차</th><th>원금</th><th>이자</th><th>납입금</th><th>잔액</th></tr></thead>
+              <tbody id="pdfScheduleBody"></tbody>
+            </table>
+          </section>
+
+          <div class="pdf-notice">
+            본 문서는 입력된 조건을 기준으로 산출한 예상 안내자료이며 대출 약정서 또는 확정된 금융거래 조건이 아닙니다.
+            실제 적용금리, 이자 계산일수, 실행일·납입일, 금리변동, 연체이자, 중도상환수수료 및 기타 조건에 따라 실제 상환액은 달라질 수 있습니다.
+            정확한 대출 조건은 거래하시는 새마을금고에 확인해 주시기 바랍니다.
+          </div>
+          <div class="pdf-footer"><span>MG새마을금고 · 대출 상환 예상 안내</span><span>고객 제공용 참고자료</span></div>
+        </article>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const amount=$("loanAmount"), amountSlider=$("loanAmountSlider"), term=$("loanTerm"), termSlider=$("loanTermSlider"),
+          rate=$("interestRate"), rateSlider=$("interestRateSlider"), termUnitLabel=$("termUnitLabel"), errorBox=$("errorBox"),
+          scheduleBody=$("scheduleBody"), pdfScheduleBody=$("pdfScheduleBody");
+    let termUnit="month", latest={data:null,rows:[]};
+    const fmt=n=>new Intl.NumberFormat("ko-KR",{maximumFractionDigits:0}).format(Math.round(n||0));
+    const clamp=(v,min,max)=>Math.min(Math.max(v,min),max);
+    const methodName=m=>({annuity:"원리금균등분할상환",principal:"원금균등분할상환",bullet:"만기일시상환"}[m]||"");
+    const selectedMethod=()=>document.querySelector('input[name="repaymentMethod"]:checked').value;
+
+    function sliderProgress(s){const min=+s.min,max=+s.max,v=+s.value,p=max===min?0:(v-min)/(max-min)*100;s.style.setProperty("--slider-progress",p+"%")}
+    function readInput(){
+      const a=+amount.value,t=+term.value,r=+rate.value;
+      if(!Number.isFinite(a)||a<=0) throw Error("대출 금액을 올바르게 입력해주세요.");
+      if(!Number.isFinite(t)||t<=0) throw Error("대출 기간을 올바르게 입력해주세요.");
+      if(!Number.isFinite(r)||r<0||r>30) throw Error("연 이자율은 0% 이상 30% 이하로 입력해주세요.");
+      const months=termUnit==="year"?Math.round(t*12):Math.round(t);
+      if(months<1||months>360) throw Error("대출 기간은 최대 360개월(30년)까지 입력할 수 있습니다.");
+      return {principal:Math.round(a*10000),months,annualRate:r,monthlyRate:r/100/12,method:selectedMethod()};
+    }
+    function annuity(p,n,r){
+      let rows=[],bal=p,pay;
+      pay=r===0?p/n:p*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1); pay=Math.round(pay);
+      for(let i=1;i<=n;i++){const interest=Math.round(bal*r);let principal=i===n?bal:Math.max(0,Math.min(pay-interest,bal));const payment=principal+interest;bal-=principal;if(bal<1)bal=0;rows.push({i,principal,interest,payment,balance:bal})}
+      return rows;
+    }
+    function equalPrincipal(p,n,r){
+      let rows=[],bal=p,base=Math.floor(p/n);
+      for(let i=1;i<=n;i++){const interest=Math.round(bal*r),principal=i===n?bal:Math.min(base,bal),payment=principal+interest;bal-=principal;if(bal<1)bal=0;rows.push({i,principal,interest,payment,balance:bal})}
+      return rows;
+    }
+    function bullet(p,n,r){
+      let rows=[],bal=p;
+      for(let i=1;i<=n;i++){const interest=Math.round(bal*r),principal=i===n?bal:0,payment=principal+interest;bal-=principal;rows.push({i,principal,interest,payment,balance:bal})}
+      return rows;
+    }
+    function build(d){return d.method==="annuity"?annuity(d.principal,d.months,d.monthlyRate):d.method==="principal"?equalPrincipal(d.principal,d.months,d.monthlyRate):bullet(d.principal,d.months,d.monthlyRate)}
+    function renderRows(target,rows,pdf=false){
+      target.innerHTML=rows.map(x=>`<tr><td>${x.i}회</td><td>${fmt(x.principal)}원</td><td>${fmt(x.interest)}원</td><td class="payment-cell">${fmt(x.payment)}원</td><td class="balance-cell">${fmt(x.balance)}원</td></tr>`).join("");
+    }
+    function calculate(){
+      errorBox.classList.remove("show");
+      try{
+        const d=readInput(),rows=build(d),totalInterest=rows.reduce((s,x)=>s+x.interest,0);
+        latest={data:d,rows,totalInterest,total:d.principal+totalInterest};
+        $("firstPayment").textContent=fmt(rows[0]?.payment||0);
+        $("totalInterest").textContent=fmt(totalInterest);
+        $("totalRepayment").textContent=fmt(d.principal+totalInterest);
+        $("summaryMethod").textContent=methodName(d.method);
+        $("tableCount").textContent=`총 ${rows.length}회`;
+        renderRows(scheduleBody,rows);
+      }catch(e){errorBox.textContent=e.message;errorBox.classList.add("show")}
+    }
+    function changeUnit(u){
+      if(u===termUnit)return;
+      const v=+term.value||1; termUnit=u;
+      document.querySelectorAll("[data-term-unit]").forEach(b=>b.classList.toggle("active",b.dataset.termUnit===u));
+      if(u==="year"){
+        const y=Math.max(1,Math.round(v/12));term.min=1;term.max=30;term.value=y;termSlider.min=1;termSlider.max=30;termSlider.value=y;termUnitLabel.textContent="년";
+      }else{
+        const m=Math.min(360,Math.max(1,Math.round(v*12)));term.min=1;term.max=360;term.value=m;termSlider.min=1;termSlider.max=360;termSlider.value=m;termUnitLabel.textContent="개월";
+      }
+      sliderProgress(termSlider);calculate();
+    }
+    function openPdf(){
+      calculate();
+      if(!latest.data)return;
+      const d=latest.data,rows=latest.rows,now=new Date();
+      $("pdfCreatedAt").textContent=`작성일시 ${now.toLocaleString("ko-KR")}`;
+      $("pdfAmount").textContent=fmt(d.principal)+"원";
+      $("pdfTerm").textContent=d.months+"개월";
+      $("pdfRate").textContent=d.annualRate.toFixed(2)+"%";
+      $("pdfMethod").textContent=methodName(d.method);
+      $("pdfFirst").textContent=fmt(rows[0]?.payment||0)+"원";
+      $("pdfInterest").textContent=fmt(latest.totalInterest)+"원";
+      $("pdfTotal").textContent=fmt(latest.total)+"원";
+      renderRows(pdfScheduleBody,rows,true);
+      $("pdfModal").classList.add("show");
+      document.body.style.overflow="hidden";
+    }
+    function closePdf(){$("pdfModal").classList.remove("show");document.body.style.overflow=""}
+
+    amount.addEventListener("input",()=>{amountSlider.value=clamp(+amount.value||100,+amountSlider.min,+amountSlider.max);sliderProgress(amountSlider)});
+    amount.addEventListener("change",calculate);
+    amountSlider.addEventListener("input",()=>{amount.value=amountSlider.value;sliderProgress(amountSlider)});
+    amountSlider.addEventListener("change",calculate);
+    document.querySelectorAll("[data-add-amount]").forEach(b=>b.addEventListener("click",()=>{amount.value=clamp((+amount.value||0)+(+b.dataset.addAmount),100,100000);amountSlider.value=clamp(+amount.value,+amountSlider.min,+amountSlider.max);sliderProgress(amountSlider);calculate()}));
+    term.addEventListener("input",()=>{termSlider.value=clamp(+term.value||1,+termSlider.min,+termSlider.max);sliderProgress(termSlider)});
+    term.addEventListener("change",calculate); termSlider.addEventListener("input",()=>{term.value=termSlider.value;sliderProgress(termSlider)});termSlider.addEventListener("change",calculate);
+    document.querySelectorAll("[data-term-unit]").forEach(b=>b.addEventListener("click",()=>changeUnit(b.dataset.termUnit)));
+    rate.addEventListener("input",()=>{rateSlider.value=clamp(+rate.value||0,+rateSlider.min,+rateSlider.max);sliderProgress(rateSlider)});rate.addEventListener("change",calculate);
+    rateSlider.addEventListener("input",()=>{rate.value=(+rateSlider.value).toFixed(2);sliderProgress(rateSlider)});rateSlider.addEventListener("change",calculate);
+    document.querySelectorAll('input[name="repaymentMethod"]').forEach(r=>r.addEventListener("change",calculate));
+    $("calculateButton").addEventListener("click",calculate);
+    $("pdfPreviewButton").addEventListener("click",openPdf); $("closePdfButton").addEventListener("click",closePdf);
+    $("printPdfButton").addEventListener("click",()=>window.print());
+    $("pdfModal").addEventListener("click",e=>{if(e.target===$("pdfModal"))closePdf()});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closePdf()});
+    [amountSlider,termSlider,rateSlider].forEach(sliderProgress); calculate();
+  })();
+  </script>
+</body>
+</html>
