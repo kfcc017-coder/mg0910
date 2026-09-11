@@ -49,7 +49,17 @@
   .pill{display:inline-block;background:#f1f5f9;border-radius:999px;padding:4px 8px;white-space:nowrap}
   .foot{margin-top:14px;color:var(--muted);font-size:12px;line-height:1.6}
   .warn{margin-top:14px;padding:12px 14px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;font-size:13px;line-height:1.55}
-  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.panel-grid{grid-template-columns:1fr}.top{flex-direction:column}.barrow{grid-template-columns:120px 1fr 70px}}
+
+  .connection-card{margin-bottom:18px}
+  .connection-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12px;color:var(--muted);font-weight:700}
+  .field input{width:100%;min-width:0}
+  .connection-note{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.5}
+  .connection-actions{display:flex;gap:8px}
+  .secondary{background:#fff}
+
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.panel-grid{grid-template-columns:1fr}.top{flex-direction:column}.barrow{grid-template-columns:120px 1fr 70px}.connection-grid{grid-template-columns:1fr}}
   @media(max-width:560px){.grid{grid-template-columns:1fr}.wrap{padding:18px 12px}.barrow{grid-template-columns:92px 1fr 62px}input{min-width:100%;width:100%}}
 </style>
 </head>
@@ -61,6 +71,28 @@
       <div class="sub">Supabase test project 017 · public.deposit_rate_comparisons · 1년 만기 기준</div>
     </div>
     <div class="status" id="status">저장 스냅샷 표시 중</div>
+  </div>
+
+
+  <div class="card connection-card">
+    <div class="panel-title">Supabase 연결 설정</div>
+    <div class="connection-grid">
+      <div class="field">
+        <label for="supabaseUrl">Project URL</label>
+        <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="supabaseKey">Publishable Key</label>
+        <input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off" />
+      </div>
+      <div class="connection-actions">
+        <button class="primary" id="connectBtn">연결</button>
+        <button class="secondary" id="clearBtn">초기화</button>
+      </div>
+    </div>
+    <div class="connection-note">
+      URL과 Publishable Key는 HTML 소스에 저장되지 않습니다. 입력값은 현재 탭의 메모리에서만 사용하며 페이지를 새로고침하면 초기화됩니다.
+    </div>
   </div>
 
   <div class="controls">
@@ -117,8 +149,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://mnobwjobpkpvruouzqes.supabase.co";
-const SUPABASE_KEY = "sb_publishable_tyb6MdajxzNiKWtMim2-8Q_ZEMkLliS";
+let SUPABASE_URL = "";
+let SUPABASE_KEY = "";
 
 const snapshot = [
   {"id":3,"institution_name":"신협(서청주신협 기준)","sector":"상호금융","product_name":"정기예탁금","base_rate":4.06,"maximum_rate":4.06,"preferential_conditions":"별도 우대조건 없음; 해당 조합 고시금리 적용","comparison_date":"2026-09-10","notes":"신협은 조합별 금리가 다름"},
@@ -201,11 +233,28 @@ function render(){
 
 async function refreshFromSupabase(){
   const status = $("#status");
+  const urlInput = $("#supabaseUrl").value.trim();
+  const keyInput = $("#supabaseKey").value.trim();
+
+  if(urlInput) SUPABASE_URL = urlInput.replace(/\/+$/,"");
+  if(keyInput) SUPABASE_KEY = keyInput;
+
+  if(!SUPABASE_URL || !SUPABASE_KEY){
+    status.textContent = "연결 정보 입력 필요";
+    $("#rlsWarn").style.display="block";
+    $("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 입력한 뒤 연결 버튼을 눌러주세요.";
+    return;
+  }
+
   status.textContent = "Supabase 연결 중…";
   try{
     const url = `${SUPABASE_URL}/rest/v1/deposit_rate_comparisons?select=id,institution_name,sector,product_name,base_rate,maximum_rate,preferential_conditions,comparison_date,notes&order=maximum_rate.desc`;
     const res = await fetch(url, {headers:{"apikey":SUPABASE_KEY}});
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    if(!res.ok){
+      let detail = "";
+      try { detail = await res.text(); } catch(_) {}
+      throw new Error(`HTTP ${res.status}${detail ? " - " + detail.slice(0,180) : ""}`);
+    }
     const data = await res.json();
     rows = data.map(r=>({...r,base_rate:Number(r.base_rate),maximum_rate:Number(r.maximum_rate)}));
     initSectors();
@@ -216,8 +265,9 @@ async function refreshFromSupabase(){
     rows = [...snapshot];
     initSectors();
     render();
-    status.textContent = "스냅샷 표시 · 실시간 접근 차단";
+    status.textContent = "연결 실패 · 스냅샷 표시";
     $("#rlsWarn").style.display="block";
+    $("#rlsWarn").textContent = "Supabase 연결에 실패했습니다. Project URL, Publishable Key, RLS SELECT 정책을 확인해주세요.";
     console.warn("Supabase refresh failed:", e);
   }
 }
@@ -226,10 +276,25 @@ $("#search").addEventListener("input",render);
 $("#sector").addEventListener("change",render);
 $("#sort").addEventListener("change",render);
 $("#refresh").addEventListener("click",refreshFromSupabase);
+$("#connectBtn").addEventListener("click",refreshFromSupabase);
+$("#clearBtn").addEventListener("click",()=>{
+  SUPABASE_URL = "";
+  SUPABASE_KEY = "";
+  $("#supabaseUrl").value = "";
+  $("#supabaseKey").value = "";
+  rows = [...snapshot];
+  initSectors();
+  render();
+  $("#status").textContent = "저장 스냅샷 표시 중";
+  $("#rlsWarn").style.display = "block";
+  $("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 입력한 뒤 연결 버튼을 눌러주세요.";
+});
 
 initSectors();
 render();
-refreshFromSupabase();
+$("#status").textContent = "연결 정보 입력 필요";
+$("#rlsWarn").style.display = "block";
+$("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 입력한 뒤 연결 버튼을 눌러주세요.";
 </script>
 </body>
 </html>
