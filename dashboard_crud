@@ -3,826 +3,259 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MG 지점 경영 대시보드</title>
-
+  <title>조합원 관리 대시보드</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7"></script>
-
   <style>
     :root{
-      --bg:#f4f7f6;
-      --card:#ffffff;
-      --text:#17312b;
-      --muted:#667a74;
-      --line:#dce7e3;
-      --primary:#0f7a5a;
-      --primary-soft:#e7f4ef;
-      --danger:#b63c3c;
-      --shadow:0 10px 28px rgba(25,56,48,.08);
-      --radius:18px;
+      --bg:#f5f7fb; --panel:#ffffff; --line:#e6e9ef; --text:#172033; --muted:#6b7280;
+      --primary:#1f6f5f; --primary-dark:#175447; --danger:#c62828; --soft:#eef7f4;
+      --shadow:0 12px 30px rgba(20,34,55,.08);
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Pretendard,"Noto Sans KR",Arial,sans-serif}
+    .wrap{max-width:1320px;margin:0 auto;padding:28px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px}
+    h1{font-size:28px;margin:0}.sub{color:var(--muted);margin-top:6px;font-size:14px}
+    .badge{background:var(--soft);color:var(--primary);padding:8px 12px;border-radius:999px;font-weight:700;font-size:13px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+    .connect{padding:20px;margin-bottom:18px}
+    .connect-grid{display:grid;grid-template-columns:1.6fr 1.6fr auto;gap:12px}
+    input,select,button{font:inherit}
+    input,select{width:100%;border:1px solid #d7dce5;border-radius:10px;padding:11px 12px;background:white;outline:none}
+    input:focus,select:focus{border-color:#6aa798;box-shadow:0 0 0 3px rgba(31,111,95,.10)}
+    button{border:0;border-radius:10px;padding:11px 15px;font-weight:700;cursor:pointer}
+    .btn-primary{background:var(--primary);color:white}.btn-primary:hover{background:var(--primary-dark)}
+    .btn-light{background:#f2f4f7;color:#344054}.btn-danger{background:#fff1f1;color:var(--danger)}
+    .toolbar{padding:16px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .toolbar .search{flex:1;min-width:260px}.toolbar select{width:180px}
+    .toolbar .spacer{flex:1}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+    .stat{padding:18px}.stat .label{font-size:13px;color:var(--muted)}.stat .value{font-size:26px;font-weight:800;margin-top:6px}
+    .table-panel{overflow:hidden}
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;min-width:920px}
+    th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;white-space:nowrap}
+    th{background:#fafbfc;color:#475467;font-size:12px;text-transform:none;position:sticky;top:0}
+    tr:hover td{background:#fcfdfd}
+    .actions{display:flex;gap:6px}
+    .actions button{padding:7px 9px;font-size:12px}
+    .empty{padding:48px 20px;text-align:center;color:var(--muted)}
+    .locked{padding:38px;text-align:center;color:var(--muted)}
+    .locked strong{display:block;color:var(--text);font-size:18px;margin-bottom:8px}
+    .status{font-size:13px;margin-top:10px;color:var(--muted)}
+    .status.ok{color:#18794e}.status.err{color:var(--danger)}
+    dialog{border:0;border-radius:18px;padding:0;width:min(620px,calc(100vw - 32px));box-shadow:0 24px 80px rgba(0,0,0,.22)}
+    dialog::backdrop{background:rgba(15,23,42,.45)}
+    .modal-head{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+    .modal-head h2{font-size:20px;margin:0}.close{background:transparent;font-size:20px;padding:4px 8px}
+    .form{padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .field label{display:block;font-size:12px;font-weight:700;color:#475467;margin-bottom:6px}
+    .field.full{grid-column:1 / -1}
+    .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#f3f4f6;font-size:12px}
+    .notice{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+    @media(max-width:760px){
+      .wrap{padding:16px}.connect-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr}
+      .top{align-items:flex-start;flex-direction:column}.form{grid-template-columns:1fr}.field.full{grid-column:auto}
     }
-    .wrap{max-width:1240px;margin:0 auto;padding:28px 20px 48px}
-    header{
-      display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px
-    }
-    h1{margin:0;font-size:28px;letter-spacing:-.03em}
-    .subtitle{margin-top:8px;color:var(--muted);font-size:14px}
-    .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-    .status{
-      padding:9px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);
-      color:var(--muted);font-size:13px;white-space:nowrap
-    }
-    button{
-      border:0;border-radius:12px;background:var(--primary);color:#fff;
-      padding:10px 14px;font-weight:700;cursor:pointer
-    }
-    button:disabled{opacity:.55;cursor:default}
-    .summary{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px
-    }
-    .kpi{
-      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-      padding:18px;box-shadow:var(--shadow)
-    }
-    .kpi .label{font-size:13px;color:var(--muted);margin-bottom:10px}
-    .kpi .value{font-size:27px;font-weight:800;letter-spacing:-.03em}
-    .kpi .unit{font-size:13px;color:var(--muted);margin-left:4px}
-    .grid{
-      display:grid;grid-template-columns:1fr 1fr;gap:18px
-    }
-    .card{
-      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-      padding:18px;box-shadow:var(--shadow);min-height:360px
-    }
-    .card.wide{grid-column:1 / -1}
-    .card h2{margin:0 0 4px;font-size:17px}
-    .card p{margin:0 0 18px;color:var(--muted);font-size:13px}
-    .chart-wrap{position:relative;height:290px}
-    .error{
-      display:none;margin:0 0 18px;padding:12px 14px;border-radius:12px;
-      background:#fff0f0;color:var(--danger);border:1px solid #f0caca;font-size:14px
-    }
-    .table-card{
-      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-      margin-top:18px;box-shadow:var(--shadow);overflow:hidden
-    }
-    .table-head{padding:18px}
-    .table-head h2{margin:0 0 4px;font-size:17px}
-    .table-head p{margin:0;color:var(--muted);font-size:13px}
-    .table-scroll{overflow:auto}
-    table{width:100%;border-collapse:collapse;min-width:760px}
-    th,td{padding:13px 16px;border-top:1px solid var(--line);text-align:right;font-size:14px}
-    th{background:#f8fbfa;color:var(--muted);font-size:12px}
-    th:first-child,td:first-child{text-align:left}
-    .badge{
-      display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;
-      background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:12px
-    }
-    .footer-note{
-      margin-top:14px;color:var(--muted);font-size:12px;line-height:1.6
-    }
-    @media (max-width:900px){
-      .summary{grid-template-columns:repeat(2,1fr)}
-      .grid{grid-template-columns:1fr}
-      .card.wide{grid-column:auto}
-      header{flex-direction:column}
-      .actions{justify-content:flex-start}
-    }
-    @media (max-width:540px){
-      .summary{grid-template-columns:1fr}
-      h1{font-size:23px}
-    }
-
-
-    /* CRUD management */
-    .crud-section{margin-top:22px}
-    .crud-header{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:14px}
-    .crud-header h2{margin:0;font-size:20px}
-    .crud-header p{margin:6px 0 0;color:var(--muted);font-size:13px}
-    .crud-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-    .crud-tab{background:#fff;color:var(--text);border:1px solid var(--line)}
-    .crud-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-    .crud-panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-    .crud-panel.active{display:block}
-    .crud-grid{display:grid;grid-template-columns:380px 1fr;min-height:420px}
-    .crud-form{padding:18px;border-right:1px solid var(--line);background:#fbfdfc}
-    .crud-form h3{margin:0 0 6px;font-size:16px}
-    .crud-form .hint{margin:0 0 16px;color:var(--muted);font-size:12px;line-height:1.5}
-    .field{margin-bottom:12px}
-    .field label{display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:var(--muted)}
-    .field input,.field select{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text);padding:10px 11px;font:inherit}
-    .field input:focus,.field select:focus{outline:2px solid #b8ded2;border-color:var(--primary)}
-    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-    .btn-secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
-    .btn-danger{background:var(--danger)}
-    .crud-list{padding:18px;overflow:hidden}
-    .crud-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-    .crud-list-head h3{margin:0;font-size:16px}
-    .crud-scroll{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:12px}
-    .crud-scroll table{min-width:780px}
-    .crud-scroll td,.crud-scroll th{padding:10px 12px;font-size:12px}
-    .crud-scroll button{padding:6px 9px;border-radius:8px;font-size:11px}
-    .mini-actions{display:flex;justify-content:flex-end;gap:6px}
-    .notice{display:none;margin:0 0 14px;padding:11px 13px;border-radius:10px;font-size:13px;line-height:1.5}
-    .notice.ok{display:block;background:#edf8f3;color:#176249;border:1px solid #c9eadc}
-    .notice.err{display:block;background:#fff0f0;color:var(--danger);border:1px solid #f0caca}
-    .id-preview{font-size:12px;color:var(--primary);font-weight:700;margin-top:-4px;margin-bottom:10px}
-    @media (max-width:900px){.crud-grid{grid-template-columns:1fr}.crud-form{border-right:0;border-bottom:1px solid var(--line)}}
-
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1>MG 지점 경영 대시보드</h1>
-        <div class="subtitle">Supabase 실시간 조회 + CRUD 실습 · 등록/수정/삭제 결과가 KPI와 차트에 즉시 반영됩니다.</div>
-      </div>
-      <div class="actions">
-        <div id="status" class="status">데이터 불러오는 중…</div>
-        <button id="refreshBtn" type="button">새로고침</button>
-      </div>
-    </header>
-
-    <div id="errorBox" class="error"></div>
-
-    <section class="summary">
-      <div class="kpi">
-        <div class="label">전체 조합원 수</div>
-        <div><span id="totalMembers" class="value">-</span><span class="unit">명</span></div>
-      </div>
-      <div class="kpi">
-        <div class="label">예적금 총액</div>
-        <div><span id="totalDeposits" class="value">-</span><span class="unit">억원</span></div>
-      </div>
-      <div class="kpi">
-        <div class="label">대출 총액</div>
-        <div><span id="totalLoans" class="value">-</span><span class="unit">억원</span></div>
-      </div>
-      <div class="kpi">
-        <div class="label">연체 건수</div>
-        <div><span id="totalOverdue" class="value">-</span><span class="unit">건</span></div>
-      </div>
-    </section>
-
-    <section class="grid">
-      <article class="card">
-        <h2>지점별 조합원 수</h2>
-        <p>각 지점에 소속된 조합원 수</p>
-        <div class="chart-wrap"><canvas id="membersChart"></canvas></div>
-      </article>
-
-      <article class="card">
-        <h2>지점별 연체 건수</h2>
-        <p>대출 상태가 '연체'인 계좌 수</p>
-        <div class="chart-wrap"><canvas id="overdueChart"></canvas></div>
-      </article>
-
-      <article class="card wide">
-        <h2>지점별 예적금·대출 총액</h2>
-        <p>지점별 잔액 및 대출원금 합계 · 단위: 억원</p>
-        <div class="chart-wrap"><canvas id="amountChart"></canvas></div>
-      </article>
-    </section>
-
-    <section class="table-card">
-      <div class="table-head">
-        <h2>지점별 상세 현황</h2>
-        <p>차트에 사용된 최신 집계 결과</p>
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>지점</th>
-              <th>조합원 수</th>
-              <th>예적금 총액</th>
-              <th>대출 총액</th>
-              <th>연체 건수</th>
-            </tr>
-          </thead>
-          <tbody id="branchTableBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-
-
-    <section class="crud-section">
-      <div class="crud-header">
-        <div>
-          <h2>데이터 관리 실습 (CRUD)</h2>
-          <p>기존 Supabase 테이블에 직접 등록·조회·수정·삭제하고, 변경 결과를 상단 KPI와 차트에서 확인합니다.</p>
-        </div>
-      </div>
-
-      <div id="crudNotice" class="notice"></div>
-      <div class="crud-tabs">
-        <button class="crud-tab active" type="button" data-tab="membersPanel">조합원 관리</button>
-        <button class="crud-tab" type="button" data-tab="depositsPanel">예적금 관리</button>
-        <button class="crud-tab" type="button" data-tab="loansPanel">대출 관리</button>
-      </div>
-
-      <div id="membersPanel" class="crud-panel active">
-        <div class="crud-grid">
-          <form id="memberForm" class="crud-form">
-            <h3>조합원 등록 / 수정</h3>
-            <p class="hint">신규 등록 시 member_id는 현재 최대값 + 1로 자동 계산합니다. 수정은 오른쪽 목록의 '수정' 버튼으로 대상을 선택합니다.</p>
-            <input type="hidden" id="memberEditId">
-            <div id="memberNextId" class="id-preview">다음 조합원 번호: -</div>
-            <div class="field"><label for="memberName">이름</label><input id="memberName" required placeholder="예: AI실습고객"></div>
-            <div class="form-row">
-              <div class="field"><label for="memberBirth">생년월일</label><input id="memberBirth" type="date" required></div>
-              <div class="field"><label for="memberGender">성별</label><select id="memberGender" required><option value="F">여자(F)</option><option value="M">남자(M)</option></select></div>
-            </div>
-            <div class="form-row">
-              <div class="field"><label for="memberJoin">가입일</label><input id="memberJoin" type="date" required></div>
-              <div class="field"><label for="memberBranch">지점</label><select id="memberBranch" required></select></div>
-            </div>
-            <div class="field"><label for="memberPhone">전화번호</label><input id="memberPhone" required placeholder="010-0000-0000"></div>
-            <div class="form-actions">
-              <button type="submit" id="memberSaveBtn">신규 등록</button>
-              <button type="button" class="btn-secondary" id="memberResetBtn">입력 초기화</button>
-            </div>
-          </form>
-          <div class="crud-list">
-            <div class="crud-list-head"><h3>조합원 목록</h3><span class="status" id="memberListCount">-</span></div>
-            <div class="crud-scroll"><table><thead><tr><th>ID</th><th>이름</th><th>성별</th><th>가입일</th><th>지점</th><th>전화번호</th><th>관리</th></tr></thead><tbody id="memberCrudBody"></tbody></table></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="depositsPanel" class="crud-panel">
-        <div class="crud-grid">
-          <form id="depositForm" class="crud-form">
-            <h3>예적금 계좌 등록 / 수정</h3>
-            <p class="hint">신규 계좌번호는 현재 최대 account_id + 1로 계산합니다. 선택한 조합원의 소속 지점을 자동 사용합니다.</p>
-            <input type="hidden" id="depositEditId">
-            <div id="depositNextId" class="id-preview">다음 계좌 번호: -</div>
-            <div class="field"><label for="depositMember">조합원</label><select id="depositMember" required></select></div>
-            <div class="field"><label for="depositType">계좌 종류</label><select id="depositType" required><option>정기예금</option><option>정기적금</option><option>보통예금</option></select></div>
-            <div class="form-row">
-              <div class="field"><label for="depositOpen">개설일</label><input id="depositOpen" type="date" required></div>
-              <div class="field"><label for="depositRate">금리(%)</label><input id="depositRate" type="number" step="0.01" min="0" required></div>
-            </div>
-            <div class="field"><label for="depositBalance">잔액(원)</label><input id="depositBalance" type="number" step="1" min="0" required></div>
-            <div class="form-actions">
-              <button type="submit" id="depositSaveBtn">신규 등록</button>
-              <button type="button" class="btn-secondary" id="depositResetBtn">입력 초기화</button>
-            </div>
-          </form>
-          <div class="crud-list">
-            <div class="crud-list-head"><h3>예적금 계좌 목록</h3><span class="status" id="depositListCount">-</span></div>
-            <div class="crud-scroll"><table><thead><tr><th>계좌ID</th><th>조합원</th><th>종류</th><th>개설일</th><th>잔액</th><th>금리</th><th>관리</th></tr></thead><tbody id="depositCrudBody"></tbody></table></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="loansPanel" class="crud-panel">
-        <div class="crud-grid">
-          <form id="loanForm" class="crud-form">
-            <h3>대출 등록 / 수정</h3>
-            <p class="hint">신규 대출번호는 현재 최대 loan_id + 1로 계산합니다. 상태를 '연체'로 변경하면 상단 연체 KPI가 바로 변합니다.</p>
-            <input type="hidden" id="loanEditId">
-            <div id="loanNextId" class="id-preview">다음 대출 번호: -</div>
-            <div class="field"><label for="loanMember">조합원</label><select id="loanMember" required></select></div>
-            <div class="field"><label for="loanType">대출 종류</label><input id="loanType" required placeholder="예: 신용대출"></div>
-            <div class="form-row">
-              <div class="field"><label for="loanAmount">대출원금(원)</label><input id="loanAmount" type="number" min="0" step="1" required></div>
-              <div class="field"><label for="loanRate">금리(%)</label><input id="loanRate" type="number" min="0" step="0.01" required></div>
-            </div>
-            <div class="form-row">
-              <div class="field"><label for="loanStart">대출일</label><input id="loanStart" type="date" required></div>
-              <div class="field"><label for="loanDue">만기일</label><input id="loanDue" type="date" required></div>
-            </div>
-            <div class="field"><label for="loanStatus">상태</label><select id="loanStatus" required><option>정상</option><option>연체</option><option>완제</option></select></div>
-            <div class="form-actions">
-              <button type="submit" id="loanSaveBtn">신규 등록</button>
-              <button type="button" class="btn-secondary" id="loanResetBtn">입력 초기화</button>
-            </div>
-          </form>
-          <div class="crud-list">
-            <div class="crud-list-head"><h3>대출 목록</h3><span class="status" id="loanListCount">-</span></div>
-            <div class="crud-scroll"><table><thead><tr><th>대출ID</th><th>조합원</th><th>종류</th><th>원금</th><th>금리</th><th>상태</th><th>관리</th></tr></thead><tbody id="loanCrudBody"></tbody></table></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
-    <div class="footer-note">
-      ※ 이 페이지는 Supabase publishable key를 사용하는 브라우저용 예시입니다.
-      현재 실습용 CRUD는 브라우저에서 직접 DB를 변경합니다. 운영 공개 전에는 인증과 RLS 정책으로 사용자별 읽기/쓰기 권한을 반드시 제한하세요.
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>조합원 관리 대시보드</h1>
+      <div class="sub">Supabase `members` 테이블 기반 조회 · 등록 · 수정 · 삭제</div>
     </div>
+    <div class="badge">CRUD Dashboard</div>
   </div>
 
-  <script>
-    const SUPABASE_URL = "https://exbttjwwmccoaabjhazn.supabase.co";
-    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_z_VqKliDDzltfhvqwEWbXA_Rm45qmnP";
+  <section class="panel connect">
+    <div class="connect-grid">
+      <input id="loginId" placeholder="ID" autocomplete="username">
+      <input id="loginPw" type="password" placeholder="PW" autocomplete="current-password">
+      <button class="btn-primary" id="connectBtn">로그인</button>
+    </div>
+    <div id="connectStatus" class="status">ID와 PW를 입력하면 대시보드가 활성화됩니다.</div>
+    <div class="notice">교육·실습용 간편 로그인입니다. 로그인 성공 후 Supabase에 자동 연결됩니다.</div>
+  </section>
 
-    const { createClient } = supabase;
-    const db = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false }
-    });
+  <div id="app" style="display:none">
+    <div class="stats">
+      <section class="panel stat"><div class="label">전체 조합원</div><div class="value" id="totalCount">0</div></section>
+      <section class="panel stat"><div class="label">조회 결과</div><div class="value" id="visibleCount">0</div></section>
+      <section class="panel stat"><div class="label">등록 지점 수</div><div class="value" id="branchCount">0</div></section>
+    </div>
 
-    const fmtInt = new Intl.NumberFormat("ko-KR");
-    const fmtAmount = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 1 });
+    <section class="panel table-panel">
+      <div class="toolbar">
+        <input class="search" id="search" placeholder="조합원번호, 이름, 전화번호로 검색">
+        <select id="branchFilter"><option value="">전체 지점</option></select>
+        <button class="btn-light" id="refreshBtn">새로고침</button>
+        <span class="spacer"></span>
+        <button class="btn-primary" id="addBtn">+ 조합원 등록</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>조합원번호</th><th>이름</th><th>생년월일</th><th>성별</th><th>가입일</th><th>지점</th><th>전화번호</th><th>관리</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div id="empty" class="empty" style="display:none">조건에 맞는 조합원이 없습니다.</div>
+      </div>
+    </section>
+  </div>
 
-    let charts = [];
+  <section id="locked" class="panel locked">
+    <strong>로그인이 필요합니다.</strong>
+    상단에 ID와 PW를 입력하면 조합원 관리 기능이 활성화됩니다.
+  </section>
+</div>
 
-    function toNumber(v) {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    }
+<dialog id="memberDialog">
+  <div class="modal-head">
+    <h2 id="modalTitle">조합원 등록</h2>
+    <button class="close" id="closeBtn">×</button>
+  </div>
+  <form id="memberForm">
+    <div class="form">
+      <div class="field"><label>조합원번호 *</label><input id="member_id" type="number" required min="1"></div>
+      <div class="field"><label>이름 *</label><input id="name" required maxlength="100"></div>
+      <div class="field"><label>생년월일 *</label><input id="birth_date" type="date" required></div>
+      <div class="field"><label>성별 *</label>
+        <select id="gender" required><option value="">선택</option><option value="M">남</option><option value="F">여</option></select>
+      </div>
+      <div class="field"><label>가입일 *</label><input id="join_date" type="date" required></div>
+      <div class="field"><label>지점 *</label><select id="branch_id" required></select></div>
+      <div class="field full"><label>전화번호 *</label><input id="phone" required maxlength="30" placeholder="010-0000-0000"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-light" id="cancelBtn">취소</button>
+      <button type="submit" class="btn-primary" id="saveBtn">저장</button>
+    </div>
+  </form>
+</dialog>
 
-    function wonToEok(v) {
-      return toNumber(v) / 100000000;
-    }
+<script>
+const { createClient } = supabase;
+let db = null, members = [], branches = [], editingId = null;
 
-    function setStatus(text) {
-      document.getElementById("status").textContent = text;
-    }
+const $ = (id)=>document.getElementById(id);
+const esc = (v)=>String(v ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const branchName = id => branches.find(b=>String(b.branch_id)===String(id))?.branch_name ?? `지점 ${id}`;
 
-    function showError(message) {
-      const box = document.getElementById("errorBox");
-      box.textContent = message;
-      box.style.display = "block";
-    }
+const APP_LOGIN_ID = '017';
+const APP_LOGIN_PW = '2026';
+const SUPABASE_URL = 'https://mnobwjobpkpvruouzqes.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_tyb6MdajxzNiKWtMim2-8Q_ZEMkLliS';
 
-    function clearError() {
-      document.getElementById("errorBox").style.display = "none";
-    }
+async function connect(){
+  const id=$('loginId').value.trim(), pw=$('loginPw').value;
+  if(id !== APP_LOGIN_ID || pw !== APP_LOGIN_PW){
+    db=null; $('app').style.display='none'; $('locked').style.display='block';
+    setStatus('ID 또는 PW가 올바르지 않습니다.', false);
+    return;
+  }
+  try{
+    db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+    setStatus('로그인 성공 · 데이터 연결 중...', true);
+    const [{data:b,error:be},{data:m,error:me}] = await Promise.all([
+      db.from('branches').select('branch_id,branch_name').order('branch_id'),
+      db.from('members').select('*').order('member_id')
+    ]);
+    if(be) throw be; if(me) throw me;
+    branches=b||[]; members=m||[];
+    hydrateBranches(); render();
+    $('locked').style.display='none'; $('app').style.display='block';
+    setStatus(`로그인됨 · members ${members.length}건`, true);
+    $('loginPw').value='';
+  }catch(e){
+    db=null; $('app').style.display='none'; $('locked').style.display='block';
+    setStatus('Supabase 연결 실패: '+(e.message||e), false);
+  }
+}
+function setStatus(msg,ok){ $('connectStatus').textContent=msg; $('connectStatus').className='status '+(ok?'ok':'err'); }
+function hydrateBranches(){
+  $('branchFilter').innerHTML='<option value="">전체 지점</option>'+branches.map(b=>`<option value="${esc(b.branch_id)}">${esc(b.branch_name)}</option>`).join('');
+  $('branch_id').innerHTML='<option value="">선택</option>'+branches.map(b=>`<option value="${esc(b.branch_id)}">${esc(b.branch_name)}</option>`).join('');
+  $('branchCount').textContent=branches.length;
+}
+function filtered(){
+  const q=$('search').value.trim().toLowerCase(), bf=$('branchFilter').value;
+  return members.filter(m=>{
+    const hay=[m.member_id,m.name,m.phone].join(' ').toLowerCase();
+    return (!q || hay.includes(q)) && (!bf || String(m.branch_id)===bf);
+  });
+}
+function render(){
+  const rows=filtered(); $('totalCount').textContent=members.length; $('visibleCount').textContent=rows.length;
+  $('empty').style.display=rows.length?'none':'block';
+  $('tbody').innerHTML=rows.map(m=>`<tr>
+    <td><b>${esc(m.member_id)}</b></td>
+    <td>${esc(m.name)}</td>
+    <td>${esc(m.birth_date)}</td>
+    <td><span class="pill">${esc(m.gender==='M'?'남':m.gender==='F'?'여':m.gender)}</span></td>
+    <td>${esc(m.join_date)}</td>
+    <td>${esc(branchName(m.branch_id))}</td>
+    <td>${esc(m.phone)}</td>
+    <td><div class="actions">
+      <button class="btn-light" onclick="openEdit(${Number(m.member_id)})">수정</button>
+      <button class="btn-danger" onclick="removeMember(${Number(m.member_id)}, '${esc(String(m.name)).replace(/'/g,"&#39;")}')">삭제</button>
+    </div></td></tr>`).join('');
+}
+async function reload(){
+  if(!db) return;
+  const {data,error}=await db.from('members').select('*').order('member_id');
+  if(error){alert('조회 실패: '+error.message);return;}
+  members=data||[]; render();
+}
+function openAdd(){
+  editingId=null; $('modalTitle').textContent='조합원 등록'; $('memberForm').reset();
+  $('member_id').disabled=false; $('join_date').value=new Date().toISOString().slice(0,10);
+  $('memberDialog').showModal();
+}
+window.openEdit=function(id){
+  const m=members.find(x=>Number(x.member_id)===Number(id)); if(!m)return;
+  editingId=id; $('modalTitle').textContent='조합원 수정';
+  ['member_id','name','birth_date','gender','join_date','branch_id','phone'].forEach(k=>$(k).value=m[k]??'');
+  $('member_id').disabled=true; $('memberDialog').showModal();
+}
+async function save(e){
+  e.preventDefault(); if(!db)return;
+  const payload={
+    member_id:Number($('member_id').value), name:$('name').value.trim(), birth_date:$('birth_date').value,
+    gender:$('gender').value, join_date:$('join_date').value, branch_id:Number($('branch_id').value),
+    phone:$('phone').value.trim()
+  };
+  let error;
+  if(editingId!==null){
+    const update={...payload}; delete update.member_id;
+    ({error}=await db.from('members').update(update).eq('member_id',editingId));
+  }else{
+    ({error}=await db.from('members').insert(payload));
+  }
+  if(error){ alert('저장 실패: '+error.message); return; }
+  $('memberDialog').close(); await reload();
+}
+window.removeMember=async function(id,name){
+  if(!db)return;
+  if(!confirm(`${name} (${id}) 조합원을 삭제하시겠습니까?\\n연결된 예금/대출 등이 있으면 외래키 제약으로 삭제가 거부될 수 있습니다.`))return;
+  const {error}=await db.from('members').delete().eq('member_id',id);
+  if(error){ alert('삭제 실패: '+error.message); return; }
+  await reload();
+}
 
-    function destroyCharts() {
-      charts.forEach(c => c.destroy());
-      charts = [];
-    }
-
-    async function fetchAllData() {
-      clearError();
-      setStatus("최신 데이터 조회 중…");
-      document.getElementById("refreshBtn").disabled = true;
-
-      try {
-        const [branchesRes, membersRes, depositsRes, loansRes] = await Promise.all([
-          db.from("branches").select("branch_id, branch_name").order("branch_id"),
-          db.from("members").select("member_id, name, birth_date, gender, join_date, branch_id, phone").order("member_id"),
-          db.from("deposit_accounts").select("account_id, member_id, branch_id, account_type, open_date, balance, interest_rate").order("account_id"),
-          db.from("loans").select("loan_id, member_id, branch_id, loan_type, loan_amount, interest_rate, start_date, due_date, status").order("loan_id")
-        ]);
-
-        const results = [branchesRes, membersRes, depositsRes, loansRes];
-        const failed = results.find(r => r.error);
-        if (failed) throw failed.error;
-
-        renderDashboard(
-          branchesRes.data || [],
-          membersRes.data || [],
-          depositsRes.data || [],
-          loansRes.data || []
-        );
-
-        setStatus("최종 조회 " + new Date().toLocaleString("ko-KR"));
-      } catch (err) {
-        console.error(err);
-        showError("Supabase 데이터를 불러오지 못했습니다: " + (err?.message || String(err)));
-        setStatus("조회 실패");
-      } finally {
-        document.getElementById("refreshBtn").disabled = false;
-      }
-    }
-
-    function renderDashboard(branches, members, deposits, loans) {
-      const rows = branches.map(branch => {
-        const branchId = branch.branch_id;
-        const memberCount = members.filter(m => m.branch_id === branchId).length;
-        const depositTotal = deposits
-          .filter(d => d.branch_id === branchId)
-          .reduce((sum, d) => sum + toNumber(d.balance), 0);
-        const loanTotal = loans
-          .filter(l => l.branch_id === branchId)
-          .reduce((sum, l) => sum + toNumber(l.loan_amount), 0);
-        const overdueCount = loans
-          .filter(l => l.branch_id === branchId && l.status === "연체").length;
-
-        return {
-          branchId,
-          branchName: branch.branch_name,
-          memberCount,
-          depositTotal,
-          loanTotal,
-          overdueCount
-        };
-      });
-
-      const totalMembers = rows.reduce((s, r) => s + r.memberCount, 0);
-      const totalDeposits = rows.reduce((s, r) => s + r.depositTotal, 0);
-      const totalLoans = rows.reduce((s, r) => s + r.loanTotal, 0);
-      const totalOverdue = rows.reduce((s, r) => s + r.overdueCount, 0);
-
-      document.getElementById("totalMembers").textContent = fmtInt.format(totalMembers);
-      document.getElementById("totalDeposits").textContent = fmtAmount.format(wonToEok(totalDeposits));
-      document.getElementById("totalLoans").textContent = fmtAmount.format(wonToEok(totalLoans));
-      document.getElementById("totalOverdue").textContent = fmtInt.format(totalOverdue);
-
-      renderTable(rows);
-      renderCharts(rows);
-      renderManagement(branches, members, deposits, loans);
-    }
-
-    function renderTable(rows) {
-      document.getElementById("branchTableBody").innerHTML = rows.map(r => `
-        <tr>
-          <td><span class="badge">${escapeHtml(r.branchName)}</span></td>
-          <td>${fmtInt.format(r.memberCount)}명</td>
-          <td>${fmtAmount.format(wonToEok(r.depositTotal))}억원</td>
-          <td>${fmtAmount.format(wonToEok(r.loanTotal))}억원</td>
-          <td>${fmtInt.format(r.overdueCount)}건</td>
-        </tr>
-      `).join("");
-    }
-
-    function renderCharts(rows) {
-      destroyCharts();
-
-      const labels = rows.map(r => r.branchName);
-
-      charts.push(new Chart(document.getElementById("membersChart"), {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [{
-            label: "조합원 수",
-            data: rows.map(r => r.memberCount),
-            backgroundColor: "rgba(15, 122, 90, .72)",
-            borderRadius: 8
-          }]
-        },
-        options: baseOptions("명")
-      }));
-
-      charts.push(new Chart(document.getElementById("overdueChart"), {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [{
-            label: "연체 건수",
-            data: rows.map(r => r.overdueCount),
-            backgroundColor: "rgba(182, 60, 60, .72)",
-            borderRadius: 8
-          }]
-        },
-        options: baseOptions("건")
-      }));
-
-      charts.push(new Chart(document.getElementById("amountChart"), {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "예적금 총액",
-              data: rows.map(r => wonToEok(r.depositTotal)),
-              backgroundColor: "rgba(15, 122, 90, .72)",
-              borderRadius: 8
-            },
-            {
-              label: "대출 총액",
-              data: rows.map(r => wonToEok(r.loanTotal)),
-              backgroundColor: "rgba(45, 91, 161, .72)",
-              borderRadius: 8
-            }
-          ]
-        },
-        options: baseOptions("억원")
-      }));
-    }
-
-    function baseOptions(unit) {
-      return {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { position: "top" },
-          tooltip: {
-            callbacks: {
-              label: ctx => `${ctx.dataset.label}: ${fmtAmount.format(ctx.parsed.y)}${unit}`
-            }
-          }
-        },
-        scales: {
-          x: { grid: { display: false } },
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: value => fmtAmount.format(value) + unit
-            }
-          }
-        }
-      };
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-
-
-    // ---------- CRUD management ----------
-    let appData = { branches: [], members: [], deposits: [], loans: [] };
-
-    function todayString() {
-      const d = new Date();
-      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-      return local.toISOString().slice(0, 10);
-    }
-
-    function nextNumericId(rows, key) {
-      return rows.reduce((max, row) => Math.max(max, Number(row[key]) || 0), 0) + 1;
-    }
-
-    function showCrudNotice(message, ok = true) {
-      const box = document.getElementById("crudNotice");
-      box.textContent = message;
-      box.className = "notice " + (ok ? "ok" : "err");
-      box.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-
-    function clearCrudNotice() {
-      const box = document.getElementById("crudNotice");
-      box.className = "notice";
-      box.textContent = "";
-    }
-
-    function branchName(branchId) {
-      return appData.branches.find(b => Number(b.branch_id) === Number(branchId))?.branch_name || `지점 ${branchId}`;
-    }
-
-    function memberName(memberId) {
-      const m = appData.members.find(x => Number(x.member_id) === Number(memberId));
-      return m ? `${m.name} (#${m.member_id})` : `조합원 ${memberId}`;
-    }
-
-    function memberById(memberId) {
-      return appData.members.find(x => Number(x.member_id) === Number(memberId));
-    }
-
-    function renderManagement(branches, members, deposits, loans) {
-      appData = { branches, members, deposits, loans };
-      renderCrudOptions();
-      renderMemberCrud();
-      renderDepositCrud();
-      renderLoanCrud();
-      updateNextIds();
-    }
-
-    function renderCrudOptions() {
-      const branchOptions = appData.branches.map(b => `<option value="${b.branch_id}">${escapeHtml(b.branch_name)}</option>`).join("");
-      const memberOptions = appData.members.map(m => `<option value="${m.member_id}">${escapeHtml(m.name)} (#${m.member_id}) · ${escapeHtml(branchName(m.branch_id))}</option>`).join("");
-      const branchSelect = document.getElementById("memberBranch");
-      const depositMember = document.getElementById("depositMember");
-      const loanMember = document.getElementById("loanMember");
-      const branchValue = branchSelect.value;
-      const depValue = depositMember.value;
-      const loanValue = loanMember.value;
-      branchSelect.innerHTML = branchOptions;
-      depositMember.innerHTML = memberOptions;
-      loanMember.innerHTML = memberOptions;
-      if (branchValue) branchSelect.value = branchValue;
-      if (depValue) depositMember.value = depValue;
-      if (loanValue) loanMember.value = loanValue;
-    }
-
-    function updateNextIds() {
-      document.getElementById("memberNextId").textContent = `다음 조합원 번호: ${nextNumericId(appData.members, "member_id")}`;
-      document.getElementById("depositNextId").textContent = `다음 계좌 번호: ${nextNumericId(appData.deposits, "account_id")}`;
-      document.getElementById("loanNextId").textContent = `다음 대출 번호: ${nextNumericId(appData.loans, "loan_id")}`;
-    }
-
-    function renderMemberCrud() {
-      document.getElementById("memberListCount").textContent = `${appData.members.length}명`;
-      document.getElementById("memberCrudBody").innerHTML = [...appData.members].reverse().map(m => `
-        <tr>
-          <td>${m.member_id}</td><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.gender)}</td>
-          <td>${escapeHtml(m.join_date)}</td><td>${escapeHtml(branchName(m.branch_id))}</td><td>${escapeHtml(m.phone || "")}</td>
-          <td><div class="mini-actions"><button type="button" onclick="editMember(${m.member_id})">수정</button><button type="button" class="btn-danger" onclick="deleteMember(${m.member_id})">삭제</button></div></td>
-        </tr>`).join("");
-    }
-
-    function renderDepositCrud() {
-      document.getElementById("depositListCount").textContent = `${appData.deposits.length}개`;
-      document.getElementById("depositCrudBody").innerHTML = [...appData.deposits].reverse().map(d => `
-        <tr>
-          <td>${d.account_id}</td><td>${escapeHtml(memberName(d.member_id))}</td><td>${escapeHtml(d.account_type)}</td>
-          <td>${escapeHtml(d.open_date)}</td><td>${fmtInt.format(toNumber(d.balance))}원</td><td>${escapeHtml(d.interest_rate)}%</td>
-          <td><div class="mini-actions"><button type="button" onclick="editDeposit(${d.account_id})">수정</button><button type="button" class="btn-danger" onclick="deleteDeposit(${d.account_id})">삭제</button></div></td>
-        </tr>`).join("");
-    }
-
-    function renderLoanCrud() {
-      document.getElementById("loanListCount").textContent = `${appData.loans.length}건`;
-      document.getElementById("loanCrudBody").innerHTML = [...appData.loans].reverse().map(l => `
-        <tr>
-          <td>${l.loan_id}</td><td>${escapeHtml(memberName(l.member_id))}</td><td>${escapeHtml(l.loan_type)}</td>
-          <td>${fmtInt.format(toNumber(l.loan_amount))}원</td><td>${escapeHtml(l.interest_rate)}%</td><td><span class="badge">${escapeHtml(l.status)}</span></td>
-          <td><div class="mini-actions"><button type="button" onclick="editLoan(${l.loan_id})">수정</button><button type="button" class="btn-danger" onclick="deleteLoan(${l.loan_id})">삭제</button></div></td>
-        </tr>`).join("");
-    }
-
-    function resetMemberForm() {
-      document.getElementById("memberForm").reset();
-      document.getElementById("memberEditId").value = "";
-      document.getElementById("memberJoin").value = todayString();
-      document.getElementById("memberSaveBtn").textContent = "신규 등록";
-    }
-
-    function resetDepositForm() {
-      document.getElementById("depositForm").reset();
-      document.getElementById("depositEditId").value = "";
-      document.getElementById("depositOpen").value = todayString();
-      document.getElementById("depositSaveBtn").textContent = "신규 등록";
-    }
-
-    function resetLoanForm() {
-      document.getElementById("loanForm").reset();
-      document.getElementById("loanEditId").value = "";
-      const start = todayString();
-      document.getElementById("loanStart").value = start;
-      const due = new Date(start + "T00:00:00");
-      due.setFullYear(due.getFullYear() + 1);
-      document.getElementById("loanDue").value = due.toISOString().slice(0,10);
-      document.getElementById("loanSaveBtn").textContent = "신규 등록";
-    }
-
-    window.editMember = function(id) {
-      const m = appData.members.find(x => Number(x.member_id) === Number(id)); if (!m) return;
-      document.getElementById("memberEditId").value = m.member_id;
-      document.getElementById("memberName").value = m.name || "";
-      document.getElementById("memberBirth").value = m.birth_date || "";
-      document.getElementById("memberGender").value = (m.gender || "").trim();
-      document.getElementById("memberJoin").value = m.join_date || "";
-      document.getElementById("memberBranch").value = m.branch_id;
-      document.getElementById("memberPhone").value = m.phone || "";
-      document.getElementById("memberSaveBtn").textContent = `#${m.member_id} 수정 저장`;
-      document.getElementById("memberForm").scrollIntoView({behavior:"smooth", block:"center"});
-    }
-
-    window.editDeposit = function(id) {
-      const d = appData.deposits.find(x => Number(x.account_id) === Number(id)); if (!d) return;
-      document.getElementById("depositEditId").value = d.account_id;
-      document.getElementById("depositMember").value = d.member_id;
-      document.getElementById("depositType").value = d.account_type;
-      document.getElementById("depositOpen").value = d.open_date || "";
-      document.getElementById("depositRate").value = d.interest_rate ?? "";
-      document.getElementById("depositBalance").value = d.balance ?? "";
-      document.getElementById("depositSaveBtn").textContent = `#${d.account_id} 수정 저장`;
-      document.getElementById("depositForm").scrollIntoView({behavior:"smooth", block:"center"});
-    }
-
-    window.editLoan = function(id) {
-      const l = appData.loans.find(x => Number(x.loan_id) === Number(id)); if (!l) return;
-      document.getElementById("loanEditId").value = l.loan_id;
-      document.getElementById("loanMember").value = l.member_id;
-      document.getElementById("loanType").value = l.loan_type || "";
-      document.getElementById("loanAmount").value = l.loan_amount ?? "";
-      document.getElementById("loanRate").value = l.interest_rate ?? "";
-      document.getElementById("loanStart").value = l.start_date || "";
-      document.getElementById("loanDue").value = l.due_date || "";
-      document.getElementById("loanStatus").value = l.status || "정상";
-      document.getElementById("loanSaveBtn").textContent = `#${l.loan_id} 수정 저장`;
-      document.getElementById("loanForm").scrollIntoView({behavior:"smooth", block:"center"});
-    }
-
-    document.getElementById("memberForm").addEventListener("submit", async e => {
-      e.preventDefault(); clearCrudNotice();
-      const editId = document.getElementById("memberEditId").value;
-      const payload = {
-        name: document.getElementById("memberName").value.trim(),
-        birth_date: document.getElementById("memberBirth").value,
-        gender: document.getElementById("memberGender").value,
-        join_date: document.getElementById("memberJoin").value,
-        branch_id: Number(document.getElementById("memberBranch").value),
-        phone: document.getElementById("memberPhone").value.trim()
-      };
-      let result;
-      if (editId) {
-        result = await db.from("members").update(payload).eq("member_id", Number(editId));
-      } else {
-        payload.member_id = nextNumericId(appData.members, "member_id");
-        result = await db.from("members").insert(payload);
-      }
-      if (result.error) return showCrudNotice("조합원 저장 실패: " + result.error.message, false);
-      showCrudNotice(editId ? `조합원 #${editId} 정보를 수정했습니다.` : `신규 조합원 #${payload.member_id}을 등록했습니다.`);
-      resetMemberForm(); await fetchAllData();
-    });
-
-    document.getElementById("depositForm").addEventListener("submit", async e => {
-      e.preventDefault(); clearCrudNotice();
-      const editId = document.getElementById("depositEditId").value;
-      const memberId = Number(document.getElementById("depositMember").value);
-      const member = memberById(memberId);
-      if (!member) return showCrudNotice("조합원 정보를 찾을 수 없습니다.", false);
-      const payload = {
-        member_id: memberId,
-        branch_id: Number(member.branch_id),
-        account_type: document.getElementById("depositType").value,
-        open_date: document.getElementById("depositOpen").value,
-        balance: Number(document.getElementById("depositBalance").value),
-        interest_rate: Number(document.getElementById("depositRate").value)
-      };
-      let result;
-      if (editId) result = await db.from("deposit_accounts").update(payload).eq("account_id", Number(editId));
-      else { payload.account_id = nextNumericId(appData.deposits, "account_id"); result = await db.from("deposit_accounts").insert(payload); }
-      if (result.error) return showCrudNotice("예적금 저장 실패: " + result.error.message, false);
-      showCrudNotice(editId ? `계좌 #${editId} 정보를 수정했습니다.` : `신규 계좌 #${payload.account_id}을 등록했습니다.`);
-      resetDepositForm(); await fetchAllData();
-    });
-
-    document.getElementById("loanForm").addEventListener("submit", async e => {
-      e.preventDefault(); clearCrudNotice();
-      const editId = document.getElementById("loanEditId").value;
-      const memberId = Number(document.getElementById("loanMember").value);
-      const member = memberById(memberId);
-      if (!member) return showCrudNotice("조합원 정보를 찾을 수 없습니다.", false);
-      const payload = {
-        member_id: memberId,
-        branch_id: Number(member.branch_id),
-        loan_type: document.getElementById("loanType").value.trim(),
-        loan_amount: Number(document.getElementById("loanAmount").value),
-        interest_rate: Number(document.getElementById("loanRate").value),
-        start_date: document.getElementById("loanStart").value,
-        due_date: document.getElementById("loanDue").value,
-        status: document.getElementById("loanStatus").value
-      };
-      let result;
-      if (editId) result = await db.from("loans").update(payload).eq("loan_id", Number(editId));
-      else { payload.loan_id = nextNumericId(appData.loans, "loan_id"); result = await db.from("loans").insert(payload); }
-      if (result.error) return showCrudNotice("대출 저장 실패: " + result.error.message, false);
-      showCrudNotice(editId ? `대출 #${editId} 정보를 수정했습니다.` : `신규 대출 #${payload.loan_id}을 등록했습니다.`);
-      resetLoanForm(); await fetchAllData();
-    });
-
-    window.deleteMember = async function(id) {
-      clearCrudNotice();
-      const [dep, loan] = await Promise.all([
-        db.from("deposit_accounts").select("account_id", { count: "exact", head: true }).eq("member_id", id),
-        db.from("loans").select("loan_id", { count: "exact", head: true }).eq("member_id", id)
-      ]);
-      if (dep.error || loan.error) return showCrudNotice("연결 데이터 확인 중 오류가 발생했습니다.", false);
-      if ((dep.count || 0) > 0 || (loan.count || 0) > 0) return showCrudNotice(`조합원 #${id}은 연결된 예적금 ${dep.count || 0}개 / 대출 ${loan.count || 0}건이 있어 삭제할 수 없습니다. 자식 데이터를 먼저 삭제하세요.`, false);
-      if (!confirm(`조합원 #${id}을 삭제할까요?`)) return;
-      const { error } = await db.from("members").delete().eq("member_id", id);
-      if (error) return showCrudNotice("조합원 삭제 실패: " + error.message, false);
-      showCrudNotice(`조합원 #${id}을 삭제했습니다.`); resetMemberForm(); await fetchAllData();
-    }
-
-    window.deleteDeposit = async function(id) {
-      clearCrudNotice();
-      const tx = await db.from("transactions").select("transaction_id", { count: "exact", head: true }).eq("account_id", id);
-      if (tx.error) return showCrudNotice("거래내역 확인 중 오류가 발생했습니다: " + tx.error.message, false);
-      if ((tx.count || 0) > 0) return showCrudNotice(`계좌 #${id}에는 거래내역 ${tx.count}건이 연결되어 있어 삭제할 수 없습니다.`, false);
-      if (!confirm(`예적금 계좌 #${id}을 삭제할까요?`)) return;
-      const { error } = await db.from("deposit_accounts").delete().eq("account_id", id);
-      if (error) return showCrudNotice("계좌 삭제 실패: " + error.message, false);
-      showCrudNotice(`예적금 계좌 #${id}을 삭제했습니다.`); resetDepositForm(); await fetchAllData();
-    }
-
-    window.deleteLoan = async function(id) {
-      clearCrudNotice();
-      if (!confirm(`대출 #${id}을 삭제할까요?`)) return;
-      const { error } = await db.from("loans").delete().eq("loan_id", id);
-      if (error) return showCrudNotice("대출 삭제 실패: " + error.message, false);
-      showCrudNotice(`대출 #${id}을 삭제했습니다.`); resetLoanForm(); await fetchAllData();
-    }
-
-    document.querySelectorAll(".crud-tab").forEach(btn => btn.addEventListener("click", () => {
-      document.querySelectorAll(".crud-tab").forEach(x => x.classList.remove("active"));
-      document.querySelectorAll(".crud-panel").forEach(x => x.classList.remove("active"));
-      btn.classList.add("active"); document.getElementById(btn.dataset.tab).classList.add("active"); clearCrudNotice();
-    }));
-
-    document.getElementById("memberResetBtn").addEventListener("click", resetMemberForm);
-    document.getElementById("depositResetBtn").addEventListener("click", resetDepositForm);
-    document.getElementById("loanResetBtn").addEventListener("click", resetLoanForm);
-    resetMemberForm(); resetDepositForm(); resetLoanForm();
-
-
-    document.getElementById("refreshBtn").addEventListener("click", fetchAllData);
-    window.addEventListener("DOMContentLoaded", fetchAllData);
-  </script>
+$('connectBtn').addEventListener('click',connect);
+$('loginId').addEventListener('keydown',e=>{if(e.key==='Enter') connect();});
+$('loginPw').addEventListener('keydown',e=>{if(e.key==='Enter') connect();});
+$('refreshBtn').addEventListener('click',reload);
+$('search').addEventListener('input',render);
+$('branchFilter').addEventListener('change',render);
+$('addBtn').addEventListener('click',openAdd);
+$('memberForm').addEventListener('submit',save);
+$('closeBtn').addEventListener('click',()=>$('memberDialog').close());
+$('cancelBtn').addEventListener('click',()=>$('memberDialog').close());
+</script>
 </body>
 </html>
