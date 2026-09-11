@@ -95,6 +95,7 @@
     </div>
   </div>
 
+  <div id="dataArea" style="display:none">
   <div class="controls">
     <input id="search" placeholder="금융기관 또는 상품명 검색" />
     <select id="sector"><option value="">전체 금융권</option></select>
@@ -143,6 +144,8 @@
     <div class="foot">금리는 세전 연이율(%) 기준이며 실제 가입 시점의 공시금리와 우대조건을 확인해야 합니다.</div>
   </div>
 
+  </div>
+
   <div class="warn" id="rlsWarn">
     실시간 새로고침은 현재 테이블에 SELECT RLS 정책이 없어서 차단될 수 있습니다. 이 경우 대시보드는 마지막으로 확인한 Supabase 스냅샷을 계속 표시합니다.
   </div>
@@ -152,17 +155,9 @@
 let SUPABASE_URL = "";
 let SUPABASE_KEY = "";
 
-const snapshot = [
-  {"id":3,"institution_name":"신협(서청주신협 기준)","sector":"상호금융","product_name":"정기예탁금","base_rate":4.06,"maximum_rate":4.06,"preferential_conditions":"별도 우대조건 없음; 해당 조합 고시금리 적용","comparison_date":"2026-09-10","notes":"신협은 조합별 금리가 다름"},
-  {"id":6,"institution_name":"OK저축은행","sector":"저축은행","product_name":"OK e-정기예금","base_rate":3.90,"maximum_rate":3.90,"preferential_conditions":"인터넷·모바일 가입; 별도 우대조건 없음","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"},
-  {"id":5,"institution_name":"SBI저축은행","sector":"저축은행","product_name":"정기예금(1년 변동금리)","base_rate":3.70,"maximum_rate":3.90,"preferential_conditions":"공시 우대폭 최대 0.20%p; 세부 요건은 가입 시 상품공시 확인","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"},
-  {"id":4,"institution_name":"수협은행","sector":"수협계열","product_name":"헤이(Hey)정기예금","base_rate":3.61,"maximum_rate":3.61,"preferential_conditions":"인터넷·스마트뱅킹 가입; 별도 실적형 우대조건 없음","comparison_date":"2026-09-10","notes":"단위수협 상호금융 예탁금이 아닌 Sh수협은행 상품"},
-  {"id":2,"institution_name":"신한은행","sector":"시중은행","product_name":"신한 My플러스 정기예금","base_rate":2.30,"maximum_rate":3.30,"preferential_conditions":"SOL뱅크 가입 및 상품별 거래·신규고객 등 우대요건; 가입 화면에서 세부 조건 확인","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"},
-  {"id":1,"institution_name":"KB국민은행","sector":"시중은행","product_name":"KB Star 정기예금","base_rate":2.40,"maximum_rate":3.20,"preferential_conditions":"인터넷·KB스타뱅킹 전용; 가입 시점 고객 적용금리 확인","comparison_date":"2026-09-10","notes":"금리는 가입 당일 변경될 수 있음"}
-];
-
-let rows = [...snapshot];
-let filtered = [...rows];
+const snapshot = [];
+let rows = [];
+let filtered = [];
 
 const $ = s => document.querySelector(s);
 const fmt = n => Number(n).toFixed(2) + "%";
@@ -236,39 +231,49 @@ async function refreshFromSupabase(){
   const urlInput = $("#supabaseUrl").value.trim();
   const keyInput = $("#supabaseKey").value.trim();
 
+  $("#dataArea").style.display = "none";
+  rows = [];
+  filtered = [];
+  render();
+
   if(urlInput) SUPABASE_URL = urlInput.replace(/\/+$/,"");
   if(keyInput) SUPABASE_KEY = keyInput;
 
   if(!SUPABASE_URL || !SUPABASE_KEY){
     status.textContent = "연결 정보 입력 필요";
-    $("#rlsWarn").style.display="block";
-    $("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 입력한 뒤 연결 버튼을 눌러주세요.";
+    $("#rlsWarn").style.display = "block";
+    $("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 모두 입력한 뒤 연결 버튼을 눌러주세요.";
     return;
   }
 
   status.textContent = "Supabase 연결 중…";
+
   try{
     const url = `${SUPABASE_URL}/rest/v1/deposit_rate_comparisons?select=id,institution_name,sector,product_name,base_rate,maximum_rate,preferential_conditions,comparison_date,notes&order=maximum_rate.desc`;
     const res = await fetch(url, {headers:{"apikey":SUPABASE_KEY}});
-    if(!res.ok){
-      let detail = "";
-      try { detail = await res.text(); } catch(_) {}
-      throw new Error(`HTTP ${res.status}${detail ? " - " + detail.slice(0,180) : ""}`);
-    }
+
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const data = await res.json();
-    rows = data.map(r=>({...r,base_rate:Number(r.base_rate),maximum_rate:Number(r.maximum_rate)}));
+    rows = data.map(r=>({
+      ...r,
+      base_rate:Number(r.base_rate),
+      maximum_rate:Number(r.maximum_rate)
+    }));
+
     initSectors();
     render();
+    $("#dataArea").style.display = "block";
     status.textContent = `Supabase 실시간 · ${new Date().toLocaleTimeString("ko-KR")}`;
-    $("#rlsWarn").style.display="none";
+    $("#rlsWarn").style.display = "none";
   }catch(e){
-    rows = [...snapshot];
-    initSectors();
+    rows = [];
+    filtered = [];
     render();
-    status.textContent = "연결 실패 · 스냅샷 표시";
-    $("#rlsWarn").style.display="block";
+    $("#dataArea").style.display = "none";
+    status.textContent = "연결 실패";
+    $("#rlsWarn").style.display = "block";
     $("#rlsWarn").textContent = "Supabase 연결에 실패했습니다. Project URL, Publishable Key, RLS SELECT 정책을 확인해주세요.";
-    console.warn("Supabase refresh failed:", e);
   }
 }
 
@@ -282,16 +287,19 @@ $("#clearBtn").addEventListener("click",()=>{
   SUPABASE_KEY = "";
   $("#supabaseUrl").value = "";
   $("#supabaseKey").value = "";
-  rows = [...snapshot];
+  rows = [];
+  filtered = [];
   initSectors();
   render();
-  $("#status").textContent = "저장 스냅샷 표시 중";
+  $("#dataArea").style.display = "none";
+  $("#status").textContent = "연결 정보 입력 필요";
   $("#rlsWarn").style.display = "block";
   $("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 입력한 뒤 연결 버튼을 눌러주세요.";
 });
 
 initSectors();
 render();
+$("#dataArea").style.display = "none";
 $("#status").textContent = "연결 정보 입력 필요";
 $("#rlsWarn").style.display = "block";
 $("#rlsWarn").textContent = "상단의 Supabase Project URL과 Publishable Key를 입력한 뒤 연결 버튼을 눌러주세요.";
